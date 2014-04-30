@@ -136,7 +136,7 @@ int main(int argc, char **argv)
 		size_t used = zmalloc_used_memory();
 		mem_cpu_to_human(used, size_human_buf, 1024);
 		mem_cpu_to_human(rss, rss_human_buf, 1024);
-		printf("memory_used %s, rss %s, fragmentation ration %f\n", size_human_buf, rss_human_buf, zmalloc_get_fragmentation_ratio(rss));
+		printf("memory_used %s, rss %s, fragmentation ratio %f\n", size_human_buf, rss_human_buf, zmalloc_get_fragmentation_ratio(rss));
 	}
 
 	return 0;
