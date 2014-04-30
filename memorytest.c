@@ -18,7 +18,7 @@ static void usage(char **argv)
 	printf("\n");
 }
 
-static size_t limit_human_to_cpu(char *s)
+static size_t mem_human_to_cpu(char *s)
 {
 	char *end;
 	size_t limit = strtol(s, &end, 10);
@@ -47,6 +47,19 @@ wrong:
 	return limit;
 }
 
+static void mem_cpu_to_human(size_t mem, char *buf, size_t buf_size)
+{
+	if (mem < 1024) {
+		snprintf(buf, buf_size, "%ldB", mem);
+	} else if (mem < 1024*1024) {
+		snprintf(buf, buf_size, "%.2fKiB", (float)mem/1024.0);
+	} else if (mem < 1024*1024*1024) {
+		snprintf(buf, buf_size, "%.2fMiB", (float)mem/1024.0/1024.0);
+	} else {
+		snprintf(buf, buf_size, "%.2fGiB", (float)mem/1024.0/1024.0/1024.0);
+	}
+}
+
 static void parse_cmd(int argc, char **argv)
 {
 	int ch;
@@ -54,7 +67,7 @@ static void parse_cmd(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "l:t:")) != -1) {
 		switch (ch) {
 			case 'l':
-				limit = limit_human_to_cpu(optarg); break;
+				limit = mem_human_to_cpu(optarg); break;
 			case 't':
 				thread_count = strtol(optarg, 0, 10); break;
 			default:
@@ -114,10 +127,16 @@ int main(int argc, char **argv)
 		}
 	}
 
+	char size_human_buf[1024];
+	char rss_human_buf[1024];
+
 	for (;;) {
 		sleep(1);
 		size_t rss = zmalloc_get_rss();
-		printf("memory_used %ld, rss %ld, fragmentation ration %f\n", zmalloc_used_memory(), rss, zmalloc_get_fragmentation_ratio(rss));
+		size_t used = zmalloc_used_memory();
+		mem_cpu_to_human(used, size_human_buf, 1024);
+		mem_cpu_to_human(rss, rss_human_buf, 1024);
+		printf("memory_used %s, rss %s, fragmentation ration %f\n", size_human_buf, rss_human_buf, zmalloc_get_fragmentation_ratio(rss));
 	}
 
 	return 0;
