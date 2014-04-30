@@ -2,7 +2,6 @@
 #define CONFIG_H
 
 #define HAVE_ATOMIC 1
-#define HAVE_JEMALLOC 1
 #define HAVE_PROC_STAT 1
 
 #endif
