@@ -161,7 +161,11 @@ static void *thread_worker(void *ctx)
 			exit(1);
 		}
 
-		memset(buf, 0x01, sizeof(alloc_size));
+		for (int i = 0; i < alloc_size; i++) {
+			*((char *)buf + i) = 'a';
+		}
+
+		//memset(buf, 0x01, sizeof(alloc_size));
 
 		*(void **)array_push(&allocations) = buf;
 
