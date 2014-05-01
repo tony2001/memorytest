@@ -28,11 +28,11 @@ static size_t mem_human_to_cpu(char *s)
 		case '\0':
 			break;
 		case 'K':
-			limit *= limit * 1024; break;
+			limit *= 1024; break;
 		case 'M':
-			limit *= limit * 1024 * 1024; break;
+			limit *= 1024 * 1024; break;
 		case 'G':
-			limit *= limit * 1024 * 1024 * 1024; break;
+			limit *= 1024 * 1024 * 1024; break;
 		default:
 			goto wrong; break;
 
