@@ -86,8 +86,15 @@ static void *thread_worker(void *ctx)
 		exit(1);
 	}
 
+	struct random_data rnd;
+	memset(&rnd, 0, sizeof(rnd));
+	char rnd_state[8];
+	initstate_r(1, rnd_state, 8, &rnd);
+
 	for (;;) {
-		long alloc_size = 10 + random() % 1024*20;
+		int32_t r;
+		random_r(&rnd, &r);
+		long alloc_size = 10 + r % 1024*20;
 
 		while (zmalloc_used_memory() + alloc_size >= limit && allocations.used) {
 			void **allocation_p = array_item_last(&allocations);
