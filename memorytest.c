@@ -3,18 +3,28 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <inttypes.h>
+
+#ifdef HAVE_JEMALLOC
+#include <jemalloc/jemalloc.h>
+#endif
 
 #include "zmalloc.h"
 #include "array.h"
 
 static size_t limit = 100*1024*1024;
 static int thread_count = 10;
+static int jemalloc_limit;
+static size_t (*memory_used_fn) (void);
 
 static void usage(char **argv)
 {
 	printf("%s\n\n", argv[0]);
 	printf("\t-l <bytes> (e.g. 10, 10K, 10M, 10G)\n");
 	printf("\t-t <threads>\n");
+#ifdef HAVE_JEMALLOC
+	printf("\t-j limit memory by jemalloc stats\n");
+#endif
 	printf("\n");
 }
 
@@ -64,18 +74,49 @@ static void parse_cmd(int argc, char **argv)
 {
 	int ch;
 
+#ifdef HAVE_JEMALLOC
+	while ((ch = getopt(argc, argv, "l:t:j")) != -1) {
+#else
 	while ((ch = getopt(argc, argv, "l:t:")) != -1) {
+#endif
 		switch (ch) {
 			case 'l':
 				limit = mem_human_to_cpu(optarg); break;
 			case 't':
 				thread_count = strtol(optarg, 0, 10); break;
+#ifdef HAVE_JEMALLOC
+			case 'j':
+				jemalloc_limit = 1; break;
+#endif
 			default:
 				usage(argv);
 				exit(0);
 		}
 	}
 }
+
+#ifdef HAVE_JEMALLOC
+static size_t jemalloc_size_allocated()
+{
+	uint64_t epoch = 1;
+	size_t allocated;
+	size_t len;
+
+	len = sizeof(epoch);
+	if (-1 == mallctl("epoch", 0, 0, &epoch, len)) {
+		fprintf(stderr, "mallctl() error\n");
+		exit(1);
+	}
+
+	len = sizeof(allocated);
+	if (-1 == mallctl("stats.allocated", &allocated, &len, NULL, 0)) {
+		fprintf(stderr, "mallctl() error\n");
+		exit(1);
+	}
+
+	return allocated;
+}
+#endif
 
 static void *thread_worker(void *ctx)
 {
@@ -96,7 +137,7 @@ static void *thread_worker(void *ctx)
 		random_r(&rnd, &r);
 		long alloc_size = 10 + r % 1024*20;
 
-		while (zmalloc_used_memory() + alloc_size >= limit && allocations.used) {
+		while (memory_used_fn() + alloc_size >= limit && allocations.used) {
 			void **allocation_p = array_item_last(&allocations);
 			if (!allocation_p) {
 				break;
@@ -115,13 +156,23 @@ static void *thread_worker(void *ctx)
 		memset(buf, 0x01, sizeof(alloc_size));
 
 		*(void **)array_push(&allocations) = buf;
+
 	}
 }
 
 int main(int argc, char **argv)
 {
-
 	parse_cmd(argc, argv);
+
+#ifdef HAVE_JEMALLOC
+	if (jemalloc_limit) {
+		memory_used_fn = jemalloc_size_allocated;
+	}
+#endif
+
+	if (!memory_used_fn) {
+		memory_used_fn = zmalloc_used_memory;
+	}
 
 	zmalloc_enable_thread_safeness();
 
@@ -140,7 +191,7 @@ int main(int argc, char **argv)
 	for (;;) {
 		sleep(1);
 		size_t rss = zmalloc_get_rss();
-		size_t used = zmalloc_used_memory();
+		size_t used = memory_used_fn();
 		mem_cpu_to_human(used, size_human_buf, 1024);
 		mem_cpu_to_human(rss, rss_human_buf, 1024);
 		printf("memory_used %s, rss %s, fragmentation ratio %f\n", size_human_buf, rss_human_buf, zmalloc_get_fragmentation_ratio(rss));
