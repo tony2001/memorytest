@@ -138,13 +138,21 @@ static void *thread_worker(void *ctx)
 		long alloc_size = 10 + r % 1024*20;
 
 		while (memory_used_fn() + alloc_size >= limit && allocations.used) {
-			void **allocation_p = array_item_last(&allocations);
-			if (!allocation_p) {
-				break;
-			}
 
-			allocations.used--;
-			zfree(*allocation_p);
+			/* delete half of our allocations */
+
+			unsigned to_delete = allocations.used / 2;
+
+			for (unsigned i = 0; i < to_delete; i++) {
+
+				void **allocation_p = array_item_last(&allocations);
+				if (!allocation_p) {
+					break;
+				}
+
+				allocations.used--;
+				zfree(*allocation_p);
+			}
 		}
 
 		void *buf = zmalloc(alloc_size);
