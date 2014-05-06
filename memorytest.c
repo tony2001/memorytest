@@ -10,7 +10,7 @@
 #endif
 
 #include "zmalloc.h"
-#include "array.h"
+#include <Judy.h>
 
 static size_t limit = 100*1024*1024;
 static int thread_count = 10;
@@ -27,6 +27,30 @@ static void usage(char **argv)
 #endif
 	printf("\n");
 }
+
+void *malloc(size_t size)
+{
+	return zmalloc(size);
+}
+
+
+void *realloc(void *ptr, size_t size)
+{
+	return zrealloc(ptr, size);
+}
+
+
+void *calloc(size_t nmemb, size_t size)
+{
+	return zcalloc(nmemb, size);
+}
+
+
+void free(void *ptr)
+{
+	zfree(ptr);
+}
+
 
 static size_t mem_human_to_cpu(char *s)
 {
@@ -103,13 +127,13 @@ static size_t jemalloc_size_allocated()
 	size_t len;
 
 	len = sizeof(epoch);
-	if (-1 == mallctl("epoch", 0, 0, &epoch, len)) {
+	if (-1 == je_mallctl("epoch", 0, 0, &epoch, len)) {
 		fprintf(stderr, "mallctl() error\n");
 		exit(1);
 	}
 
 	len = sizeof(allocated);
-	if (-1 == mallctl("stats.allocated", &allocated, &len, NULL, 0)) {
+	if (-1 == je_mallctl("stats.allocated", &allocated, &len, NULL, 0)) {
 		fprintf(stderr, "mallctl() error\n");
 		exit(1);
 	}
@@ -118,57 +142,69 @@ static size_t jemalloc_size_allocated()
 }
 #endif
 
+#define RAND_RANGE(__n, __min, __max, __tmax) \
+	(__n) = (__min) + (long) ((double) ( (double) (__max) - (__min) + 1.0) * ((__n) / ((__tmax) + 1.0)))
+
+#define MAX_RAND_NUM 2000
+
 static void *thread_worker(void *ctx)
 {
-	struct array_s allocations;
-
-	if (0 == array_init(&allocations, sizeof(void *), 0)) {
-		fprintf(stderr, "no mem\n");
-		exit(1);
-	}
-
+	Pvoid_t judy_l = NULL;
 	struct random_data rnd;
-	memset(&rnd, 0, sizeof(rnd));
 	char rnd_state[8];
+
+	memset(&rnd, 0, sizeof(rnd));
 	initstate_r(1, rnd_state, 8, &rnd);
 
 	for (;;) {
-		int32_t r;
+		int r;
+		Pvoid_t judy_1;
+		PPvoid_t ppvalue;
+		long i, j, first = 0, array_index, arrays_n, entries_n, entry_value;
+		long judy_l_count = JudyLCount(judy_l, 0, -1, NULL);
+
+		while (memory_used_fn() >= limit && (ppvalue = JudyLFirst(judy_l, &first, NULL)) != NULL) {
+			judy_1 = *ppvalue;
+			Judy1FreeArray(&judy_1, NULL);
+			JudyLDel(&judy_l, first, NULL);
+		}
+
+		/* random number of arrays */
 		random_r(&rnd, &r);
-		long alloc_size = 10 + r % 1024*20;
+		arrays_n = (long) r;
+		RAND_RANGE(arrays_n, 0, MAX_RAND_NUM, 2147483647);
 
-		while (memory_used_fn() + alloc_size >= limit && allocations.used) {
+		for (j = 0; j < arrays_n; j++) {
+			/* random number of entries */
+			random_r(&rnd, &r);
+			entries_n = (long) r;
+			RAND_RANGE(entries_n, 0, MAX_RAND_NUM, 2147483647);
 
-			/* delete half of our allocations */
+			judy_1 = NULL;
+			for (i = 0; i < entries_n; i++) {
+				/* random values in Judy1 array */
+				random_r(&rnd, &r);
+				entry_value = (long) r;
 
-			unsigned to_delete = allocations.used / 2;
+				Judy1Set(&judy_1, entry_value, NULL);
+			}
 
-			for (unsigned i = 0; i < to_delete; i++) {
+			for (;;) {
+				random_r(&rnd, &r);
+				array_index = (long) r;
 
-				void **allocation_p = array_item_last(&allocations);
-				if (!allocation_p) {
-					break;
+				ppvalue = JudyLIns(&judy_l, array_index, NULL);
+				if (!ppvalue) {
+					exit(1);
 				}
 
-				allocations.used--;
-				zfree(*allocation_p);
+				if (!*ppvalue) {
+					break;
+				}
 			}
+
+			*ppvalue = judy_1;
 		}
-
-		void *buf = zmalloc(alloc_size);
-		if (!buf) {
-			fprintf(stderr, "no mem\n");
-			exit(1);
-		}
-
-		for (int i = 0; i < alloc_size; i++) {
-			*((char *)buf + i) = 'a';
-		}
-
-		//memset(buf, 0x01, sizeof(alloc_size));
-
-		*(void **)array_push(&allocations) = buf;
-
 	}
 }
 

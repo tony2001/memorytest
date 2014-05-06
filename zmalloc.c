@@ -132,19 +132,32 @@ void *zmalloc(size_t size) {
 #endif
 }
 
-void *zcalloc(size_t size) {
-    void *ptr = calloc(1, size+PREFIX_SIZE);
-
-    if (!ptr) zmalloc_oom_handler(size);
-#ifdef HAVE_MALLOC_SIZE
-    update_zmalloc_stat_alloc(zmalloc_size(ptr));
-    return ptr;
-#else
-    *((size_t*)ptr) = size;
-    update_zmalloc_stat_alloc(size+PREFIX_SIZE);
-    return (char*)ptr+PREFIX_SIZE;
-#endif
+#if defined(USE_TCMALLOC)
+void *zcalloc(size_t n, size_t size) {
+	return calloc(n, size);
 }
+#elif defined(USE_JEMALLOC)
+void *zcalloc(size_t n, size_t size) {
+	return calloc(n, size);
+}
+#else
+void *zcalloc(size_t n, size_t size) {
+	void *ptr = malloc((n * size)+PREFIX_SIZE);
+
+	if (!ptr) zmalloc_oom_handler(size);
+
+	memset(ptr, 0, (n * size) + PREFIX_SIZE);
+
+# ifdef HAVE_MALLOC_SIZE
+	update_zmalloc_stat_alloc(zmalloc_size(ptr));
+	return ptr;
+# else
+	*((size_t*)ptr) = (n * size) + PREFIX_SIZE;
+	update_zmalloc_stat_alloc((n * size)+PREFIX_SIZE);
+	return (char*)ptr+PREFIX_SIZE;
+# endif
+}
+#endif
 
 void *zrealloc(void *ptr, size_t size) {
 #ifndef HAVE_MALLOC_SIZE
