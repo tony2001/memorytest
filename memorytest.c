@@ -103,13 +103,13 @@ static size_t jemalloc_size_allocated()
 	size_t len;
 
 	len = sizeof(epoch);
-	if (-1 == mallctl("epoch", 0, 0, &epoch, len)) {
+	if (-1 == je_mallctl("epoch", 0, 0, &epoch, len)) {
 		fprintf(stderr, "mallctl() error\n");
 		exit(1);
 	}
 
 	len = sizeof(allocated);
-	if (-1 == mallctl("stats.allocated", &allocated, &len, NULL, 0)) {
+	if (-1 == je_mallctl("stats.allocated", &allocated, &len, NULL, 0)) {
 		fprintf(stderr, "mallctl() error\n");
 		exit(1);
 	}
