@@ -9,10 +9,10 @@ libc: memorytest.c zmalloc.c config.h
 	gcc --std=gnu99 -g3 -O0 -o memorytest memorytest.c zmalloc.c -pthread
 
 jemalloc: memorytest.c zmalloc.c config.h
-	gcc -DHAVE_JEMALLOC $(MA_CFLAGS) $(MA_LDFLAGS) --std=gnu99 -g3 -O0 -o memorytest memorytest.c zmalloc.c -pthread -ljemalloc
+	gcc -DUSE_JEMALLOC $(MA_CFLAGS) $(MA_LDFLAGS) --std=gnu99 -g3 -O0 -o memorytest memorytest.c zmalloc.c -pthread -ljemalloc
 
 tcmalloc: memorytest.c zmalloc.c config.h
-	gcc -DHAVE_TCMALLOC $(MA_CFLAGS) $(MA_LDFLAGS) --std=gnu99 -g3 -O0 -o memorytest memorytest.c zmalloc.c -pthread -ltcmalloc
+	gcc -DUSE_TCMALLOC $(MA_CFLAGS) $(MA_LDFLAGS) --std=gnu99 -g3 -O0 -o memorytest memorytest.c zmalloc.c -pthread -ltcmalloc
 
 clean:
 	rm -f memorytest

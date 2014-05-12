@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <inttypes.h>
 
-#ifdef HAVE_JEMALLOC
+#ifdef USE_JEMALLOC
 #include <jemalloc/jemalloc.h>
 #endif
 
@@ -22,7 +22,7 @@ static void usage(char **argv)
 	printf("%s\n\n", argv[0]);
 	printf("\t-l <bytes> (e.g. 10, 10K, 10M, 10G)\n");
 	printf("\t-t <threads>\n");
-#ifdef HAVE_JEMALLOC
+#ifdef USE_JEMALLOC
 	printf("\t-j limit memory by jemalloc stats\n");
 #endif
 	printf("\n");
@@ -74,7 +74,7 @@ static void parse_cmd(int argc, char **argv)
 {
 	int ch;
 
-#ifdef HAVE_JEMALLOC
+#ifdef USE_JEMALLOC
 	while ((ch = getopt(argc, argv, "l:t:j")) != -1) {
 #else
 	while ((ch = getopt(argc, argv, "l:t:")) != -1) {
@@ -84,7 +84,7 @@ static void parse_cmd(int argc, char **argv)
 				limit = mem_human_to_cpu(optarg); break;
 			case 't':
 				thread_count = strtol(optarg, 0, 10); break;
-#ifdef HAVE_JEMALLOC
+#ifdef USE_JEMALLOC
 			case 'j':
 				jemalloc_limit = 1; break;
 #endif
@@ -95,7 +95,7 @@ static void parse_cmd(int argc, char **argv)
 	}
 }
 
-#ifdef HAVE_JEMALLOC
+#ifdef USE_JEMALLOC
 static size_t jemalloc_size_allocated()
 {
 	uint64_t epoch = 1;
@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 {
 	parse_cmd(argc, argv);
 
-#ifdef HAVE_JEMALLOC
+#ifdef USE_JEMALLOC
 	if (jemalloc_limit) {
 		memory_used_fn = jemalloc_size_allocated;
 	}
